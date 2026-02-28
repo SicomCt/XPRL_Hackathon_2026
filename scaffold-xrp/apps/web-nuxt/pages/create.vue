@@ -64,6 +64,7 @@
 import { xrpToDrops } from 'xrpl'
 
 const { walletManager, accountInfo, showStatus, addEvent } = useWallet()
+const ANCHOR_DESTINATION = 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe'
 
 const form = reactive({
   title: "",
@@ -176,10 +177,15 @@ async function publishAuction() {
       startPriceXrp: form.startPriceXrp,
     })
 
+    if (sellerAddress === ANCHOR_DESTINATION) {
+      showStatus('Anchor destination cannot be the same as seller address', 'error')
+      return
+    }
+
     const tx = {
       TransactionType: 'Payment' as const,
       Account: sellerAddress,
-      Destination: sellerAddress,
+      Destination: ANCHOR_DESTINATION,
       Amount: xrpToDrops('0.000001'),
       Fee: '12',
       Memos: [
