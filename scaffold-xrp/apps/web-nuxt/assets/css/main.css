@@ -3,25 +3,146 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-0: #050816;
+    --bg-1: #0a1029;
+    --bg-2: #111a3d;
+    --glass: rgba(11, 22, 54, 0.65);
+    --glass-border: rgba(73, 125, 255, 0.35);
+    --text-0: #e8f0ff;
+    --text-1: #a8bbdf;
+    --text-2: #7f92b5;
+    --neon: #49b8ff;
+    --neon-2: #7b61ff;
+  }
+
+  html,
   body {
-    @apply text-gray-900;
+    min-height: 100%;
+    @apply text-slate-100 antialiased;
+    background:
+      radial-gradient(1200px 600px at 10% -20%, rgba(73, 184, 255, 0.18), transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, rgba(123, 97, 255, 0.18), transparent 50%),
+      linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 45%, var(--bg-2) 100%);
+    background-attachment: fixed;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+
+  input,
+  textarea,
+  select {
+    color: var(--text-0);
+    background: rgba(7, 15, 36, 0.75);
+    border-color: rgba(86, 114, 170, 0.45);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #7f91b2;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: rgba(73, 184, 255, 0.8);
+    box-shadow: 0 0 0 2px rgba(73, 184, 255, 0.2);
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-accent hover:bg-accent/90 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+    @apply text-white font-medium py-2 px-4 rounded-lg transition-all duration-200;
+    background: linear-gradient(120deg, var(--neon), var(--neon-2));
+    box-shadow: 0 8px 24px rgba(73, 184, 255, 0.28);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 30px rgba(123, 97, 255, 0.35);
   }
 
   .btn-secondary {
-    @apply bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+    @apply text-slate-100 font-medium py-2 px-4 rounded-lg transition-all duration-200;
+    background: rgba(20, 34, 76, 0.85);
+    border: 1px solid rgba(83, 113, 184, 0.55);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(27, 44, 93, 0.95);
   }
 
   .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+    @apply rounded-xl p-6;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      0 8px 30px rgba(2, 8, 28, 0.45),
+      inset 0 1px 0 rgba(195, 220, 255, 0.08);
+    backdrop-filter: blur(8px);
   }
 
   .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent;
+    @apply w-full px-4 py-2 rounded-lg;
+    border: 1px solid rgba(86, 114, 170, 0.45);
+    background: rgba(7, 15, 36, 0.75);
+    color: var(--text-0);
   }
+
+  .input:focus {
+    border-color: rgba(73, 184, 255, 0.8);
+    box-shadow: 0 0 0 2px rgba(73, 184, 255, 0.2);
+  }
+
+  .tech-title {
+    background: linear-gradient(90deg, #9fd8ff, #a8b8ff 45%, #d3b5ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 20px rgba(123, 97, 255, 0.2);
+  }
+
+  .tech-panel {
+    background: rgba(8, 18, 45, 0.58);
+    border: 1px solid rgba(82, 114, 187, 0.38);
+    box-shadow: inset 0 1px 0 rgba(192, 214, 255, 0.06);
+  }
+}
+
+/* Utility overrides to keep readable text on dark glass background */
+.tech-theme .text-gray-900,
+.tech-theme .text-gray-800,
+.tech-theme .text-gray-700 {
+  color: var(--text-0) !important;
+}
+
+.tech-theme .text-gray-600,
+.tech-theme .text-gray-500 {
+  color: var(--text-1) !important;
+}
+
+.tech-theme .text-gray-400 {
+  color: var(--text-2) !important;
+}
+
+.tech-theme .bg-white,
+.tech-theme .bg-gray-50,
+.tech-theme .bg-green-50,
+.tech-theme .bg-blue-50 {
+  background: rgba(11, 22, 54, 0.58) !important;
+}
+
+.tech-theme .border-gray-200,
+.tech-theme .border-gray-300,
+.tech-theme .border-blue-200,
+.tech-theme .border-green-200 {
+  border-color: rgba(86, 114, 170, 0.45) !important;
+}
+
+.tech-theme .bg-accent,
+.tech-theme .hover\:bg-accent\/90:hover {
+  background: linear-gradient(120deg, var(--neon), var(--neon-2)) !important;
 }

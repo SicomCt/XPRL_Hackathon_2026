@@ -4,44 +4,24 @@ const { statusMessage } = useWallet()
 const statusClass = computed(() => {
   if (!statusMessage.value) return ''
   const type = statusMessage.value.type
-  if (type === 'success') return 'bg-green-50 text-green-700'
-  if (type === 'error') return 'bg-red-50 text-red-700'
-  if (type === 'warning') return 'bg-yellow-50 text-yellow-700'
-  return 'bg-blue-50 text-blue-700'
+  if (type === 'success') return 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/35'
+  if (type === 'error') return 'bg-rose-500/20 text-rose-200 border border-rose-400/35'
+  if (type === 'warning') return 'bg-amber-500/20 text-amber-200 border border-amber-400/35'
+  return 'bg-sky-500/20 text-sky-200 border border-sky-400/35'
 })
 </script>
 
 <template>
-  <header class="bg-white border-b border-gray-200">
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-slate-950/65 border-b border-cyan-400/20">
     <div class="container mx-auto px-4 py-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-4">
           <NuxtLink to="/" class="flex items-center space-x-2 hover:opacity-80">
-            <div class="w-10 h-10 bg-xrpl rounded-lg flex items-center justify-center">
-              <span class="text-white font-bold text-xl">X</span>
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-cyan-400 to-indigo-500 shadow-[0_0_20px_rgba(56,189,248,0.45)]">
+              <span class="text-white font-bold text-xl drop-shadow">X</span>
             </div>
-            <span class="text-xl font-bold">Scaffold-XRP</span>
+            <span class="text-xl font-bold tech-title">Scaffold-XRP</span>
           </NuxtLink>
-          <nav class="flex gap-2 text-sm">
-            <NuxtLink
-              to="/auctions"
-              class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
-            >
-              拍品池
-            </NuxtLink>
-            <NuxtLink
-              to="/create"
-              class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
-            >
-              发布拍品
-            </NuxtLink>
-            <NuxtLink
-              to="/me"
-              class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
-            >
-              我的出价
-            </NuxtLink>
-          </nav>
         </div>
 
         <div class="flex items-center space-x-4">

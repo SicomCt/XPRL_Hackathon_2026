@@ -5,7 +5,7 @@
     </div>
 
     <div class="border rounded p-4">
-      <div class="text-sm text-gray-600 mb-2">Mock escrows</div>
+      <div class="text-sm text-gray-600 mb-2">Demo escrow records</div>
       <ul class="space-y-2 text-sm">
         <li v-for="e in escrows" :key="e.hash" class="flex items-center justify-between border rounded p-3">
           <div>
@@ -18,15 +18,12 @@
             <div><b>Anchor Tx:</b> {{ e.anchorTxHash || '-' }}</div>
             <div class="text-xs text-gray-500">tx: {{ e.hash }}</div>
           </div>
-          <button class="border rounded px-3 py-1" @click="mockCancel(e.hash)">
-            Cancel (mock)
-          </button>
         </li>
       </ul>
     </div>
 
     <div class="text-xs text-gray-600">
-      下一步：这里会调用 EscrowCancel 退款（落标者解锁资金）
+      Next step: this page will support live EscrowCancel refunds for non-winning bids.
     </div>
   </div>
 </template>
@@ -92,8 +89,4 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('storage', loadEscrows)
 })
-
-function mockCancel(hash: string) {
-  alert(`Me page OK ✅ 下一步对 escrow ${hash} 发 EscrowCancel`)
-}
 </script>

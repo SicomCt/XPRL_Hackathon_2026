@@ -1,5 +1,5 @@
 /**
- * 构建并提交拍卖相关链上交易
+ * Build and submit auction-related on-chain transactions.
  */
 import { Client, xrpToDrops } from 'xrpl'
 import {
@@ -20,7 +20,7 @@ import {
 
 const TESTNET_WSS = 'wss://s.altnet.rippletest.net:51233'
 
-/** 从已提交的交易哈希获取实际使用的 Sequence */
+/** Resolve the actual Sequence used by a submitted transaction hash. */
 async function getSequenceFromTxHash(txHash: string): Promise<number> {
   const client = new Client(TESTNET_WSS)
   await client.connect()
@@ -32,16 +32,16 @@ async function getSequenceFromTxHash(txHash: string): Promise<number> {
         const seq = (resp.result as { Sequence?: number }).Sequence
         if (seq !== undefined && seq !== null) return seq
       } catch {
-        // tx 可能尚未上链，继续重试
+        // Transaction may not be validated yet; keep retrying.
       }
     }
-    throw new Error('交易尚未确认，请稍后重试')
+    throw new Error('Transaction not validated yet. Please try again shortly.')
   } finally {
     await client.disconnect()
   }
 }
 
-/** 从链上查找 Escrow 的 Sequence（当 BID 中存的 sequence 有误时备用） */
+/** Find escrow Sequence from ledger as a fallback when BID sequence is incorrect. */
 async function findEscrowSequenceFromLedger(owner: string, destination: string, amountDrops: string): Promise<number | null> {
   const client = new Client(TESTNET_WSS)
   await client.connect()
@@ -62,7 +62,7 @@ async function findEscrowSequenceFromLedger(owner: string, destination: string, 
         const seq = (txResp.result as { Sequence?: number }).Sequence
         if (seq) return seq
       } catch {
-        // 忽略单条查询失败
+        // Ignore single lookup failure and keep scanning.
       }
     }
     return null
@@ -82,7 +82,7 @@ export function useAuctionTx() {
   ) => {
     const wm = walletManager.value
     if (!wm?.account) {
-      showStatus('请先连接钱包', 'error')
+      showStatus('Please connect a wallet first', 'error')
       throw new Error('Wallet not connected')
     }
     const memo = buildMemo(memoType, memoData)
@@ -99,12 +99,12 @@ export function useAuctionTx() {
     return result
   }
 
-  /** 发布拍品 AUCTION_CREATE */
+  /** Publish auction with AUCTION_CREATE memo event. */
   const publishAuctionCreate = async (payload: AuctionCreatePayload) => {
     return submitPaymentWithMemo(AUCTION_INDEX_ADDRESS, xrpToDrops('0.000001'), EVENT_AUCTION_CREATE, payload as unknown as Record<string, unknown>)
   }
 
-  /** 出价：1. EscrowCreate 锁款  2. BID Memo 到 AuctionIndex */
+  /** Place bid: 1) EscrowCreate lock 2) BID memo to AuctionIndex. */
   const submitBid = async (params: {
     auctionId: string
     sellerAddress: string
@@ -113,7 +113,7 @@ export function useAuctionTx() {
   }) => {
     const wm = walletManager.value
     if (!wm?.account) {
-      showStatus('请先连接钱包', 'error')
+      showStatus('Please connect a wallet first', 'error')
       throw new Error('Wallet not connected')
     }
     const bidder = wm.account.address
@@ -121,7 +121,7 @@ export function useAuctionTx() {
     const finishAfterRipple = endRipple + ESCROW_RELEASE_DELAY_SEC
     const cancelAfterRipple = endRipple + ESCROW_CANCEL_AFTER_GRACE_SEC
 
-    // 1. EscrowCreate（拍卖结束即可 Finish，1 分钟后可 Cancel）
+    // 1) EscrowCreate (finish at auction end, cancel after 1 minute).
     const escrowTx = {
       TransactionType: 'EscrowCreate' as const,
       Account: bidder,
@@ -134,21 +134,21 @@ export function useAuctionTx() {
     const escrowResult = await wm.signAndSubmit(escrowTx as any)
     addEvent('EscrowCreate', escrowResult)
 
-    // 从实际交易获取 Sequence，确保 EscrowFinish 使用正确值
+    // Resolve Sequence from confirmed tx to ensure EscrowFinish uses the right value.
     const txHash = (escrowResult as any)?.hash ?? (escrowResult as any)?.id ?? (escrowResult as any)?.result?.hash
     let escrowSeq = 0
     if (txHash && typeof txHash === 'string') {
       try {
         escrowSeq = await getSequenceFromTxHash(txHash)
       } catch {
-        // 若 tx 查询失败，尝试从链上 escrow 列表查找
+        // If tx lookup fails, try finding escrow sequence from account objects.
         escrowSeq = (await findEscrowSequenceFromLedger(bidder, params.sellerAddress, params.bidDrops)) ?? 0
       }
     }
     if (escrowSeq === 0) {
       escrowSeq = (await findEscrowSequenceFromLedger(bidder, params.sellerAddress, params.bidDrops)) ?? 0
     }
-    if (escrowSeq === 0) throw new Error('无法获取 Escrow 序号，请稍后刷新页面重试')
+    if (escrowSeq === 0) throw new Error('Could not resolve Escrow sequence. Please refresh and try again.')
 
     const bidPayload: BidPayload = {
       type: EVENT_BID,
@@ -160,16 +160,16 @@ export function useAuctionTx() {
       ts: Math.floor(Date.now() / 1000),
     }
 
-    // 2. BID Memo（0 XRP 到 AuctionIndex）
+    // 2) BID memo (0 XRP) sent to AuctionIndex.
     await submitPaymentWithMemo(AUCTION_INDEX_ADDRESS, xrpToDrops('0.000001'), EVENT_BID, bidPayload as unknown as Record<string, unknown>)
     return { escrowResult, bidPayload }
   }
 
-  /** EscrowFinish：赢家放款给卖家（任何人可触发） */
+  /** EscrowFinish: release winner funds to seller (can be triggered by anyone). */
   const submitEscrowFinish = async (owner: string, seq: number) => {
     const wm = walletManager.value
     if (!wm?.account) {
-      showStatus('请先连接钱包', 'error')
+      showStatus('Please connect a wallet first', 'error')
       throw new Error('Wallet not connected')
     }
     const tx = {
@@ -186,17 +186,17 @@ export function useAuctionTx() {
     } catch (e: any) {
       const msg = e?.message || e?.data?.error_message || String(e)
       if (msg.includes('tec') || msg.includes('tem')) {
-        throw new Error(`链上拒绝: ${msg}。请确认：1) 拍卖已结束 2) 在 1 分钟内操作 3) Escrow 未被取消`)
+        throw new Error(`Ledger rejected: ${msg}. Check: 1) auction ended 2) action is within 1 minute 3) escrow is not canceled`)
       }
       throw e
     }
   }
 
-  /** EscrowCancel：输家退款 */
+  /** EscrowCancel: refund non-winning bidder escrow. */
   const submitEscrowCancel = async (owner: string, seq: number) => {
     const wm = walletManager.value
     if (!wm?.account) {
-      showStatus('请先连接钱包', 'error')
+      showStatus('Please connect a wallet first', 'error')
       throw new Error('Wallet not connected')
     }
     const tx = {
@@ -211,17 +211,17 @@ export function useAuctionTx() {
     return result
   }
 
-  /** SHIP_COMMIT：卖家承诺发货 */
+  /** SHIP_COMMIT: seller posts shipping commitment. */
   const submitShipCommit = async (payload: ShipCommitPayload) => {
     return submitPaymentWithMemo(AUCTION_INDEX_ADDRESS, xrpToDrops('0.000001'), EVENT_SHIP_COMMIT, payload as unknown as Record<string, unknown>)
   }
 
-  /** RECEIVED_CONFIRM：买家确认收货 */
+  /** RECEIVED_CONFIRM: buyer confirms receipt. */
   const submitReceivedConfirm = async (payload: ReceivedConfirmPayload) => {
     return submitPaymentWithMemo(AUCTION_INDEX_ADDRESS, xrpToDrops('0.000001'), EVENT_RECEIVED_CONFIRM, payload as unknown as Record<string, unknown>)
   }
 
-  /** 从链上查找赢家 Escrow 的正确 Sequence（EscrowFinish 失败时可重试） */
+  /** Lookup correct winner escrow sequence from ledger for retry flows. */
   const lookupEscrowSequence = async (owner: string, destination: string, amountDrops: string) => {
     return findEscrowSequenceFromLedger(owner, destination, amountDrops)
   }

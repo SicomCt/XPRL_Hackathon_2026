@@ -39,13 +39,13 @@ const handleSubmit = async () => {
     isLoading.value = true
     result.value = null
 
-    // GemWallet 要求 Amount 为字符串，并需要 Fee。xrpl-connect 会传递 Account。
+    // GemWallet expects Amount as a string and requires Fee. xrpl-connect passes Account.
     const transaction = {
       TransactionType: 'Payment' as const,
       Account: walletManager.value.account.address,
       Destination: dest,
-      Amount: amt, // 字符串格式的 drops
-      Fee: '12', // 最低费用，避免 GemWallet 因缺少 Fee 报错
+      Amount: amt, // drops as string
+      Fee: '12', // minimum fee to avoid GemWallet validation issues
     }
 
     const txResult = await walletManager.value.signAndSubmit(transaction as any)

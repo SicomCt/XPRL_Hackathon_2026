@@ -53,7 +53,7 @@ export function useWallet() {
     }, 5000)
   }
 
-  /** 手动设置地址（仅查看，不可签名交易） */
+  /** Set manual address (read-only; cannot sign transactions). */
   function setManualAddress(address: string) {
     if (!address || !address.trim()) return
     setAccountInfo({

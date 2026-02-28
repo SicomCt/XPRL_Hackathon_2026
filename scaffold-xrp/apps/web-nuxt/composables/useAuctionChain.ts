@@ -1,5 +1,5 @@
 /**
- * 从链上扫描 AuctionIndex 地址的交易，解析拍卖事件流
+ * Scan AuctionIndex account transactions and parse auction event streams.
  */
 import { Client } from 'xrpl'
 import {
@@ -18,7 +18,7 @@ import {
 
 const TESTNET_WSS = 'wss://s.altnet.rippletest.net:51233'
 
-/** 获取当前已验证 ledger 的 Ripple Epoch 关闭时间（用于精确判断 FinishAfter 是否已到） */
+/** Get validated ledger close time in Ripple Epoch seconds for FinishAfter checks. */
 export async function getLedgerCloseTimeRipple(): Promise<number> {
   const client = new Client(TESTNET_WSS)
   await client.connect()

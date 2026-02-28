@@ -27,7 +27,7 @@ async function checkAvailability() {
   for (const [id, adapter] of adapters) {
     result[id] = await checkAdapter(adapter)
   }
-  // GemWallet 扩展内容脚本注入可能较慢，首次检测失败时延迟重试
+  // GemWallet content-script injection can be slow; retry after delay.
   if (result.gemwallet === false && adapters.has('gemwallet')) {
     await new Promise(r => setTimeout(r, 800))
     result.gemwallet = await checkAdapter(adapters.get('gemwallet'))
@@ -74,7 +74,7 @@ async function connect(walletId: 'crossmark' | 'gemwallet') {
     isConnecting.value = true
     showDropdown.value = false
     showStatus(`Connecting to ${walletId === 'crossmark' ? 'Crossmark' : 'GemWallet'}...`, 'info')
-    // GemWallet 检测不稳定，连接前多次重试以确保扩展已就绪
+    // GemWallet detection can be flaky; retry before connecting.
     if (walletId === 'gemwallet') {
       const ok = await ensureGemwalletAvailable()
       if (!ok) {
@@ -108,7 +108,7 @@ async function disconnect() {
   }
 }
 
-// 点击外部关闭下拉
+// Close dropdown when clicking outside.
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (!target.closest('.wallet-connector-wrap')) {
@@ -121,25 +121,25 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 <template>
   <div class="wallet-connector-wrap relative flex items-center gap-2">
-    <!-- 已连接：显示地址和断开 -->
+    <!-- Connected state: show address and disconnect -->
     <template v-if="isConnected && accountInfo?.walletName !== 'Manual'">
       <span class="text-sm text-gray-600 truncate max-w-[140px]">
         {{ accountInfo?.address?.slice(0, 6) }}...{{ accountInfo?.address?.slice(-4) }}
       </span>
       <button
         type="button"
-        class="px-3 py-1.5 text-xs bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+        class="px-3 py-1.5 text-xs rounded-lg transition-colors border border-rose-400/40 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30"
         @click="disconnect"
       >
         Disconnect
       </button>
     </template>
-    <!-- 未连接：Connect Wallet 按钮 + 下拉 -->
+    <!-- Disconnected state: connect button + wallet dropdown -->
     <template v-else>
       <template v-if="walletManager">
         <button
           type="button"
-          class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1"
+          class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50 flex items-center gap-1 bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-violet-500 shadow-[0_6px_20px_rgba(59,130,246,0.35)]"
           :disabled="isConnecting"
           @click="toggleDropdown"
         >

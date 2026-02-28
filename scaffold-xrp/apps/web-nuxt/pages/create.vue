@@ -1,63 +1,63 @@
 <template>
   <div class="max-w-3xl mx-auto p-6 space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">发布拍品</h1>
+      <h1 class="text-2xl font-bold">Create Auction</h1>
     </div>
 
     <div class="grid gap-4">
       <div>
-        <label class="text-sm">标题</label>
-        <input v-model="form.title" class="mt-1 w-full border rounded p-2" placeholder="例如：iPhone 15 Pro 256G" />
+        <label class="text-sm">Title</label>
+        <input v-model="form.title" class="mt-1 w-full border rounded p-2" placeholder="e.g. iPhone 15 Pro 256GB" />
       </div>
 
       <div>
-        <label class="text-sm">描述</label>
-        <textarea v-model="form.description" class="mt-1 w-full border rounded p-2" rows="4" placeholder="商品详情" />
+        <label class="text-sm">Description</label>
+        <textarea v-model="form.description" class="mt-1 w-full border rounded p-2" rows="4" placeholder="Item details" />
       </div>
 
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="text-sm">起拍价 (XRP)</label>
+          <label class="text-sm">Start Price (XRP)</label>
           <input v-model="form.startPriceXrp" class="mt-1 w-full border rounded p-2" type="number" step="0.1" min="0" />
         </div>
         <div>
-          <label class="text-sm">最低加价 (XRP)</label>
+          <label class="text-sm">Min Increment (XRP)</label>
           <input v-model="form.minIncrementXrp" class="mt-1 w-full border rounded p-2" type="number" step="0.1" min="0" />
         </div>
       </div>
 
       <div>
-        <label class="text-sm">保留价 (XRP，可选，低于此价不成交)</label>
-        <input v-model="form.reserveXrp" class="mt-1 w-full border rounded p-2" type="number" step="0.1" min="0" placeholder="0 表示无保留价" />
+        <label class="text-sm">Reserve Price (XRP, optional)</label>
+        <input v-model="form.reserveXrp" class="mt-1 w-full border rounded p-2" type="number" step="0.1" min="0" placeholder="Set 0 for no reserve" />
       </div>
 
       <div class="grid grid-cols-3 gap-4">
         <div>
-          <label class="text-sm">开始时间</label>
+          <label class="text-sm">Start Time</label>
           <input v-model="form.startTime" type="datetime-local" class="mt-1 w-full border rounded p-2" />
         </div>
         <div>
-          <label class="text-sm">结束时间</label>
+          <label class="text-sm">End Time</label>
           <input v-model="form.endTime" type="datetime-local" class="mt-1 w-full border rounded p-2" />
         </div>
         <div>
-          <label class="text-sm">商品图片</label>
+          <label class="text-sm">Item Image</label>
           <input type="file" accept="image/*" class="mt-1 w-full border rounded p-2" @change="onSelectImage" />
           <div class="text-xs text-gray-500 mt-1">
-            {{ selectedImage ? selectedImage.name : '未选择' }}
+            {{ selectedImage ? selectedImage.name : 'No file selected' }}
           </div>
         </div>
       </div>
 
       <button class="btn-primary disabled:opacity-50" :disabled="isPublishing" @click="publishAuction">
-        {{ isPublishing ? '发布中...' : '发布 (IPFS + AUCTION_CREATE 上链)' }}
+        {{ isPublishing ? 'Publishing...' : 'Publish Auction' }}
       </button>
 
       <div v-if="result" class="text-sm border rounded p-3 bg-green-50">
         <div><b>Auction ID:</b> {{ result.auctionId }}</div>
         <div><b>Image CID:</b> {{ result.imageCid }}</div>
         <div><b>Meta CID (desc_hash):</b> {{ result.metaCid }}</div>
-        <div><b>链上锚点 Tx:</b> {{ result.txHash }}</div>
+        <div><b>Anchor Tx:</b> {{ result.txHash }}</div>
       </div>
 
       <pre class="text-xs bg-gray-50 border rounded p-3 overflow-auto">{{ preview }}</pre>
@@ -92,8 +92,8 @@ const result = ref<{
 
 const preview = computed(() => ({
   ...form,
-  seller: accountInfo.value?.address || '(请先连接钱包)',
-  image: selectedImage.value?.name || '(未选图)',
+  seller: accountInfo.value?.address || '(connect wallet first)',
+  image: selectedImage.value?.name || '(no image)',
 }))
 
 const MOCK_AUCTIONS_KEY = 'mock_auctions_v1'
@@ -121,23 +121,23 @@ function onSelectImage(event: Event) {
 async function publishAuction() {
   const sellerAddress = walletManager.value?.account?.address
   if (!walletManager.value || !sellerAddress) {
-    showStatus('请先连接钱包', 'error')
+    showStatus('Please connect a wallet first', 'error')
     return
   }
 
   if (!form.title || !form.startTime || !form.endTime) {
-    showStatus('请至少填写标题、开始时间、结束时间', 'error')
+    showStatus('Please complete title, start time, and end time', 'error')
     return
   }
   if (!selectedImage.value) {
-    showStatus('请选择商品图片后再发布', 'error')
+    showStatus('Please upload an item image before publishing', 'error')
     return
   }
 
   const startTs = Math.floor(Date.parse(form.startTime) / 1000)
   const endTs = Math.floor(Date.parse(form.endTime) / 1000)
   if (Number.isNaN(startTs) || Number.isNaN(endTs) || endTs <= startTs) {
-    showStatus('结束时间必须晚于开始时间', 'error')
+    showStatus('End time must be later than start time', 'error')
     return
   }
 
@@ -211,10 +211,10 @@ async function publishAuction() {
     }
 
     addEvent('Auction Published', result.value)
-    showStatus('拍品发布成功：IPFS 元数据 + AUCTION_CREATE 已上链', 'success')
+    showStatus('Auction published successfully', 'success')
   } catch (error: any) {
-    const msg = error?.data?.statusMessage || error?.message || '发布失败'
-    showStatus(`发布失败：${msg}`, 'error')
+    const msg = error?.data?.statusMessage || error?.message || 'Publish failed'
+    showStatus(`Publish failed: ${msg}`, 'error')
   } finally {
     isPublishing.value = false
   }

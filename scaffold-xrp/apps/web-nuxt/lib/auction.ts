@@ -1,37 +1,37 @@
 /**
- * 链上拍卖 - 常量、类型、工具
- * 设计：AuctionIndex 锚点 + Memo 事件流 + Escrow 锁款
+ * On-chain auction constants, types, and helpers.
+ * Design: AuctionIndex anchor + memo event stream + escrow locking.
  */
 
-/** Ripple Epoch：2000-01-01 00:00:00 UTC，比 Unix Epoch 晚 946684800 秒 */
+/** Ripple Epoch starts at 2000-01-01 00:00:00 UTC (Unix offset: 946684800). */
 export const RIPPLE_EPOCH_OFFSET = 946684800
 
-/** 拍卖索引锚点地址（AuctionIndex），接收 0 XRP + Memo 作为事件流 */
+/** Auction index anchor address receiving 0 XRP + memo events. */
 export const AUCTION_INDEX_ADDRESS = 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe'
 
 /** 1 XRP = 1,000,000 drops */
 export const XRP_TO_DROPS = 1_000_000
 
-/** Escrow 释放延迟（秒）：0 = 拍卖结束即可 EscrowFinish */
+/** Escrow release delay in seconds: 0 means EscrowFinish right after auction end. */
 export const ESCROW_RELEASE_DELAY_SEC = 0
-/** CancelAfter：1 分钟后，输家可申请退款。EscrowFinish 窗口为 1 分钟 */
+/** CancelAfter grace period: non-winners can refund after 1 minute. */
 export const ESCROW_CANCEL_AFTER_GRACE_SEC = 60
 
-// --- 事件类型 ---
+// --- Event types ---
 export const EVENT_AUCTION_CREATE = 'AUCTION_CREATE'
 export const EVENT_BID = 'BID'
 export const EVENT_SHIP_COMMIT = 'SHIP_COMMIT'
 export const EVENT_RECEIVED_CONFIRM = 'RECEIVED_CONFIRM'
 
-// --- 类型定义 ---
+// --- Type definitions ---
 export interface AuctionCreatePayload {
   type: typeof EVENT_AUCTION_CREATE
   auction_id: string
   seller: string
   title: string
-  desc_hash: string // sha256 或 IPFS CID，用于详情防篡改
-  start_time: number // Unix 秒
-  end_time: number // Unix 秒
+  desc_hash: string // sha256 hash or IPFS CID for tamper-resistant metadata
+  start_time: number // Unix seconds
+  end_time: number // Unix seconds
   currency: string
   min_increment_drops: string
   reserve_drops: string
@@ -53,7 +53,7 @@ export interface ShipCommitPayload {
   auction_id: string
   seller: string
   winner: string
-  tracking_hash?: string // 物流单号 hash 或明文
+  tracking_hash?: string // shipping tracking hash or raw value
   ts: number
 }
 
@@ -85,9 +85,9 @@ export interface AuctionWithBids {
   receivedConfirm?: { payload: ReceivedConfirmPayload; txHash: string }
 }
 
-// --- 工具函数 ---
+// --- Utility helpers ---
 
-/** 字符串转 hex（XRPL Memo 格式） */
+/** Convert string to hex for XRPL memo format. */
 export function toHex(text: string): string {
   return Array.from(new TextEncoder().encode(text))
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -95,7 +95,7 @@ export function toHex(text: string): string {
     .toUpperCase()
 }
 
-/** hex 转字符串 */
+/** Convert hex back to string. */
 export function fromHex(hex: string): string {
   const bytes = new Uint8Array(hex.length / 2)
   for (let i = 0; i < hex.length; i += 2) {
@@ -104,17 +104,17 @@ export function fromHex(hex: string): string {
   return new TextDecoder().decode(bytes)
 }
 
-/** Unix 秒 → Ripple Epoch 秒 */
+/** Convert Unix seconds to Ripple Epoch seconds. */
 export function unixToRippleSeconds(unixSeconds: number): number {
   return unixSeconds - RIPPLE_EPOCH_OFFSET
 }
 
-/** Ripple Epoch 秒 → Unix 秒 */
+/** Convert Ripple Epoch seconds to Unix seconds. */
 export function rippleToUnixSeconds(rippleSeconds: number): number {
   return rippleSeconds + RIPPLE_EPOCH_OFFSET
 }
 
-/** 构建 Memo 对象 */
+/** Build XRPL Memo object. */
 export function buildMemo(type: string, data: Record<string, unknown>): { Memo: { MemoType: string; MemoData: string } } {
   return {
     Memo: {
@@ -124,7 +124,7 @@ export function buildMemo(type: string, data: Record<string, unknown>): { Memo: 
   }
 }
 
-/** 解析交易中的 Memo 为事件 */
+/** Parse transaction memos into an auction event payload. */
 export function parseMemosFromTx(tx: { Memos?: Array<{ Memo?: { MemoType?: string; MemoData?: string } }> }): AuctionEventPayload | null {
   const memos = tx.Memos
   if (!memos?.length) return null
