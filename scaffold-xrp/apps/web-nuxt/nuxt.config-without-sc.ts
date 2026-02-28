@@ -52,4 +52,8 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
   },
+
+  runtimeConfig: {
+    pinataJwt: process.env.PINATA_JWT || '',
+  },
 })
