@@ -1,67 +1,90 @@
 <template>
   <div class="max-w-3xl mx-auto p-6 space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Create Auction</h1>
+      <h1 class="text-2xl font-bold">上架商品（競標）</h1>
+      <NuxtLink to="/market" class="text-sm text-gray-500 hover:underline">← 競標市場</NuxtLink>
     </div>
 
-    <div class="grid gap-4">
-      <div>
-        <label class="text-sm">Title</label>
-        <input v-model="form.title" class="mt-1 w-full border rounded p-2" />
-      </div>
+    <div v-if="!isConnected" class="border rounded-lg p-4 bg-amber-50 text-amber-800">
+      請先連接錢包，以使用您的地址作為賣家。
+    </div>
 
+    <form v-else class="grid gap-4 border rounded-lg p-6 bg-white shadow-sm" @submit.prevent="publish">
       <div>
-        <label class="text-sm">Description</label>
-        <textarea v-model="form.description" class="mt-1 w-full border rounded p-2" rows="4" />
+        <label class="text-sm font-medium">商品標題</label>
+        <input v-model="form.title" class="mt-1 w-full border rounded p-2" required />
       </div>
-
+      <div>
+        <label class="text-sm font-medium">說明</label>
+        <textarea v-model="form.description" class="mt-1 w-full border rounded p-2" rows="4" required />
+      </div>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="text-sm">Start Price (XRP)</label>
-          <input v-model="form.startPriceXrp" class="mt-1 w-full border rounded p-2" />
+          <label class="text-sm font-medium">結標時間</label>
+          <input v-model="form.endTime" type="datetime-local" class="mt-1 w-full border rounded p-2" required />
         </div>
         <div>
-          <label class="text-sm">Min Increment (XRP)</label>
-          <input v-model="form.minIncrementXrp" class="mt-1 w-full border rounded p-2" />
+          <label class="text-sm font-medium">最低出價 (XRP，選填)</label>
+          <input v-model="form.minBidXrp" type="number" step="0.1" min="0" class="mt-1 w-full border rounded p-2" placeholder="0" />
         </div>
       </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="text-sm">End Time</label>
-          <input v-model="form.endTime" type="datetime-local" class="mt-1 w-full border rounded p-2" />
-        </div>
-        <div>
-          <label class="text-sm">Photo (for now: URL)</label>
-          <input v-model="form.photoUrl" class="mt-1 w-full border rounded p-2" />
-        </div>
+      <div>
+        <label class="text-sm font-medium">圖片 URL（選填）</label>
+        <input v-model="form.imageUrl" type="url" class="mt-1 w-full border rounded p-2" placeholder="https://..." />
       </div>
-
-      <button class="border rounded px-4 py-2 w-fit" @click="mockPublish">
-        Publish (mock)
+      <button
+        type="submit"
+        class="border rounded px-4 py-2 w-fit bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
+        :disabled="isSubmitting"
+      >
+        {{ isSubmitting ? '上架中…' : '上架商品' }}
       </button>
-
-      <pre class="text-xs bg-gray-50 border rounded p-3 overflow-auto">{{ preview }}</pre>
-    </div>
+      <p v-if="createdId" class="text-sm text-green-700">
+        已建立！<NuxtLink :to="`/auction/${createdId}`" class="underline">前往競標頁</NuxtLink>
+        ，或到「競標市場」為此商品提交上鏈憑證。
+      </p>
+    </form>
   </div>
 </template>
 
 <script setup lang="ts">
+const { isConnected, accountInfo } = useWallet()
+
 const form = reactive({
-  title: "",
-  description: "",
-  photoUrl: "",
-  startPriceXrp: "10",
-  minIncrementXrp: "1",
-  endTime: "",
+  title: '',
+  description: '',
+  endTime: '',
+  minBidXrp: '' as string | number,
+  imageUrl: '',
 })
+const isSubmitting = ref(false)
+const createdId = ref('')
 
-const preview = computed(() => ({
-  ...form,
-  note: "下一步：photo+metadata 上传 web3.storage，拿到 metaCID 后再做 AUCTION_CREATE 上链锚点",
-}))
+async function publish() {
+  if (!accountInfo.value?.address) return
+  const endTime = new Date(form.endTime).toISOString()
+  if (Number.isNaN(new Date(form.endTime).getTime())) return
+  const minBidXrp = form.minBidXrp === '' ? undefined : Number(form.minBidXrp)
+  if (minBidXrp != null && (!Number.isFinite(minBidXrp) || minBidXrp < 0)) return
 
-function mockPublish() {
-  alert("Create page OK ✅ 下一步接 web3.storage + AUCTION_CREATE")
+  isSubmitting.value = true
+  try {
+    const listing = await $fetch<{ id: string }>('/api/listings', {
+      method: 'POST',
+      body: {
+        title: form.title,
+        description: form.description,
+        sellerAddress: accountInfo.value.address,
+        endTime,
+        minBidXrp,
+        imageUrl: form.imageUrl || undefined,
+      },
+    })
+    createdId.value = listing.id
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>

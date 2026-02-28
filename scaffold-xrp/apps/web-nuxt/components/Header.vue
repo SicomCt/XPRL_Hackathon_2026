@@ -24,16 +24,22 @@ const statusClass = computed(() => {
           </NuxtLink>
           <nav class="flex gap-2 text-sm">
             <NuxtLink
+              to="/market"
+              class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
+            >
+              競標市場
+            </NuxtLink>
+            <NuxtLink
               to="/create"
               class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
             >
-              Create Auction
+              上架商品
             </NuxtLink>
             <NuxtLink
               to="/me"
               class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
             >
-              My Bids
+              我的出價
             </NuxtLink>
           </nav>
         </div>

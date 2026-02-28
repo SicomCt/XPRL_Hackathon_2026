@@ -9,10 +9,16 @@ useHead({
   <div class="min-h-screen">
     <main class="container mx-auto px-4 py-8">
       <div class="mb-8">
-        <h1 class="text-4xl font-bold mb-2">Scaffold-XRP</h1>
-        <p class="text-gray-600">
-          A starter kit for building dApps on XRPL with smart contracts
+        <h1 class="text-4xl font-bold mb-2">Scaffold-XRP · 競標平台</h1>
+        <p class="text-gray-600 mb-4">
+          商品上架、上鏈驗證、買家競標使用 Smart Escrow（XRPL 原生 Escrow）
         </p>
+        <NuxtLink
+          to="/market"
+          class="inline-block px-6 py-3 bg-accent text-white font-medium rounded-lg hover:bg-accent/90"
+        >
+          前往競標市場
+        </NuxtLink>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

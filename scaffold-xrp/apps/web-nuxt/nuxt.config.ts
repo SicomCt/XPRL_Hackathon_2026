@@ -12,6 +12,12 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  runtimeConfig: {
+    public: {
+      /** XRPL address that receives escrowed bids (platform/seller). Set in .env as NUXT_PUBLIC_PLATFORM_ESCROW_ADDRESS */
+      platformEscrowAddress: process.env.NUXT_PUBLIC_PLATFORM_ESCROW_ADDRESS || 'rPlatformEscrowXXXXXXXXXXXXXXXXXXXXXXXXXX',
+    },
+  },
   app: {
     head: {
       title: 'Scaffold-XRP',
