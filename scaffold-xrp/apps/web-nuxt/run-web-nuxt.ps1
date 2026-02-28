@@ -3,9 +3,8 @@ param(
   [string]$PinataJwt
 )
 
-$projectPath = "C:\Users\Joy\Desktop\XRPL Hackathon\XPRL_Hackathon_2026\scaffold-xrp\apps\web-nuxt"
-
-Set-Location $projectPath
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $scriptDir
 
 if ($PinataJwt) {
   $env:PINATA_JWT = $PinataJwt
