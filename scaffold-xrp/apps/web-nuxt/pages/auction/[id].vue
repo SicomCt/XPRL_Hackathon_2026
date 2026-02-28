@@ -200,8 +200,16 @@ function formatTime(ts: number): string {
 }
 
 async function loadAuction() {
-  const list = await useAuctionChain().fetchAuctions()
-  auction.value = list.find((a) => a.auction.auction_id === id) ?? null
+  loading.value = true
+  try {
+    const list = await fetchAuctions()
+    auction.value = list.find((a) => a.auction.auction_id === id) ?? null
+  } catch (e: any) {
+    auction.value = null
+    showStatus(e?.message || '加载拍卖信息失败', 'error')
+  } finally {
+    loading.value = false
+  }
 }
 
 async function placeBid() {
