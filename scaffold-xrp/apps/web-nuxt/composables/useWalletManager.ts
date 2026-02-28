@@ -1,4 +1,5 @@
 // Configuration - Replace with your API keys
+import { useWallet } from '~/composables/useWallet'
 const XAMAN_API_KEY = import.meta.env.VITE_XAMAN_API_KEY || ''
 const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || ''
 

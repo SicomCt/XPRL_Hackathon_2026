@@ -14,8 +14,8 @@ export const XRP_TO_DROPS = 1_000_000
 
 /** Escrow release delay in seconds: 0 means EscrowFinish right after auction end. */
 export const ESCROW_RELEASE_DELAY_SEC = 0
-/** CancelAfter grace period: non-winners can refund after 1 minute. */
-export const ESCROW_CANCEL_AFTER_GRACE_SEC = 60
+/** CancelAfter grace period: non-winners can refund 40 seconds after auction end. */
+export const ESCROW_CANCEL_AFTER_GRACE_SEC = 40
 
 // --- Event types ---
 export const EVENT_AUCTION_CREATE = 'AUCTION_CREATE'

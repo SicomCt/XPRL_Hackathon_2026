@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useWallet } from '~/composables/useWallet'
+
 const { isConnected, accountInfo, setManualAddress, clearManualConnection, showStatus } = useWallet()
 const showInput = ref(false)
 const addressInput = ref('')

@@ -52,6 +52,7 @@
 <script setup lang="ts">
 import { AUCTION_INDEX_ADDRESS, XRP_TO_DROPS } from '~/lib/auction'
 import type { AuctionWithBids } from '~/lib/auction'
+import { useAuctionChain } from '~/composables/useAuctionChain'
 
 useHead({ title: 'Auction Pool - On-Chain Auction' })
 

@@ -138,7 +138,9 @@
 <script setup lang="ts">
 import { XRP_TO_DROPS, ESCROW_RELEASE_DELAY_SEC, ESCROW_CANCEL_AFTER_GRACE_SEC, unixToRippleSeconds } from '~/lib/auction'
 import type { AuctionWithBids } from '~/lib/auction'
-import { getLedgerCloseTimeRipple } from '~/composables/useAuctionChain'
+import { getLedgerCloseTimeRipple, useAuctionChain } from '~/composables/useAuctionChain'
+import { useAuctionTx } from '~/composables/useAuctionTx'
+import { useWallet } from '~/composables/useWallet'
 
 const route = useRoute()
 const id = route.params.id as string

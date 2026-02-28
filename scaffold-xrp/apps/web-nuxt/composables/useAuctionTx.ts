@@ -17,6 +17,7 @@ import {
   type ShipCommitPayload,
   type ReceivedConfirmPayload,
 } from '~/lib/auction'
+import { useWallet } from '~/composables/useWallet'
 
 const TESTNET_WSS = 'wss://s.altnet.rippletest.net:51233'
 

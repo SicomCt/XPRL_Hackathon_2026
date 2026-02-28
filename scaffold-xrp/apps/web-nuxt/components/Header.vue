@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useWallet } from '~/composables/useWallet'
+
 const { statusMessage } = useWallet()
 
 const statusClass = computed(() => {

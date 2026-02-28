@@ -67,6 +67,8 @@
 
 <script setup lang="ts">
 import { XRP_TO_DROPS } from '~/lib/auction'
+import { useWallet } from '~/composables/useWallet'
+import { useAuctionTx } from '~/composables/useAuctionTx'
 
 const { walletManager, accountInfo, showStatus, addEvent } = useWallet()
 const { publishAuctionCreate } = useAuctionTx()

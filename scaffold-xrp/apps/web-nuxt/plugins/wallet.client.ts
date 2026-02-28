@@ -1,3 +1,5 @@
+import { useWallet } from '~/composables/useWallet'
+
 export default defineNuxtPlugin(async () => {
   const { setWalletManager, setIsConnected, setAccountInfo, addEvent, showStatus } = useWallet()
 

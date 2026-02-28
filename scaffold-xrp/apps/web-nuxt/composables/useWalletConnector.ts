@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { WalletManager } from 'xrpl-connect'
+import { useWallet } from '~/composables/useWallet'
 
 export function useWalletConnector(walletManager: Ref<WalletManager | null>) {
   const walletConnectorRef = ref<HTMLElement | null>(null)

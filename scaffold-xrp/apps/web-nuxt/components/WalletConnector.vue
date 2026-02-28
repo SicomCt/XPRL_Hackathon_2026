@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useWallet } from '~/composables/useWallet'
+
 const WALLET_LINKS: Record<string, string> = {
   crossmark: 'https://crossmark.com',
   gemwallet: 'https://gemwallet.com',
