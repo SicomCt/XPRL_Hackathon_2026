@@ -10,6 +10,7 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "dev:nuxt": "pnpm --filter web-nuxt dev",
+    "dev:nuxt:safe": "./start-dev.sh",
     "dev:web": "pnpm --filter web dev",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
