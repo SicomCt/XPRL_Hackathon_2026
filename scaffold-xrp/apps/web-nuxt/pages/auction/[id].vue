@@ -58,32 +58,47 @@
         </div>
       </div>
 
-      <!-- 结算（卖家）：EscrowFinish 放款给赢家 -->
+      <!-- 结算（卖家）：EscrowFinish 放款给卖家 -->
       <div v-if="isEnded && isSeller && winnerBid && !auction.shipCommit" class="card">
         <h2 class="font-bold mb-4">结算</h2>
         <p class="text-sm text-gray-600 mb-2">
           赢家: {{ winnerBid.payload.bidder }} - {{ dropsToXrp(winnerBid.payload.bid_drops) }} XRP
         </p>
-        <p class="text-xs text-gray-500 mb-2">执行 EscrowFinish 将款项释放给卖家。输家需在拍卖结束 24h 后自行 EscrowCancel 退款。</p>
+        <p class="text-xs text-gray-500 mb-2">拍卖结束后即可放款，输家 1 分钟后可申请退款。以链上 ledger 时间为准。</p>
         <button
           class="btn-primary disabled:opacity-50"
-          :disabled="isSettling"
+          :disabled="isSettling || !isPastFinishAfter"
           @click="settle"
         >
-          {{ isSettling ? '结算中...' : 'EscrowFinish 放款' }}
+          {{ isSettling ? '结算中...' : isPastFinishAfter ? 'EscrowFinish 放款' : '请等待拍卖结束' }}
         </button>
       </div>
 
-      <!-- 输家自助退款（拍卖结束 24h 后） -->
+      <!-- 赢家自助付款：得标者可自行完成转账给卖家 -->
+      <div v-if="isEnded && isWinner && winnerBid && !auction.shipCommit" class="card">
+        <h2 class="font-bold mb-4">完成付款（得标者）</h2>
+        <p class="text-sm text-gray-600 mb-2">
+          您已得标，款项 {{ dropsToXrp(winnerBid.payload.bid_drops) }} XRP 将转给卖家。拍卖结束后即可操作（1 分钟内有效）。
+        </p>
+        <button
+          class="btn-primary disabled:opacity-50"
+          :disabled="isSettling || !isPastFinishAfter"
+          @click="settle"
+        >
+          {{ isSettling ? '转账中...' : isPastFinishAfter ? '完成付款（EscrowFinish）' : '请等待拍卖结束' }}
+        </button>
+      </div>
+
+      <!-- 输家自助退款（拍卖结束 1 分钟后） -->
       <div v-if="isEnded && canCancelMyEscrow" class="card">
         <h2 class="font-bold mb-4">申请退款</h2>
-        <p class="text-sm text-gray-600 mb-2">您未中标，可在拍卖结束 24 小时后取回锁定的款项。</p>
+        <p class="text-sm text-gray-600 mb-2">您未中标，可在拍卖结束 1 分钟后取回锁定的款项。</p>
         <button
           class="btn-secondary disabled:opacity-50"
           :disabled="isCancelling || !isPastCancelAfter"
           @click="cancelMyEscrow"
         >
-          {{ isCancelling ? '处理中...' : isPastCancelAfter ? 'EscrowCancel 退款' : '请等待 24h 后操作' }}
+          {{ isCancelling ? '处理中...' : isPastCancelAfter ? 'EscrowCancel 退款' : '请等待 1 分钟后操作' }}
         </button>
       </div>
 
@@ -127,8 +142,9 @@
 </template>
 
 <script setup lang="ts">
-import { XRP_TO_DROPS, ESCROW_CANCEL_AFTER_GRACE_SEC } from '~/lib/auction'
+import { XRP_TO_DROPS, ESCROW_RELEASE_DELAY_SEC, ESCROW_CANCEL_AFTER_GRACE_SEC, unixToRippleSeconds } from '~/lib/auction'
 import type { AuctionWithBids } from '~/lib/auction'
+import { getLedgerCloseTimeRipple } from '~/composables/useAuctionChain'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -138,6 +154,7 @@ const {
   submitBid,
   submitEscrowFinish,
   submitEscrowCancel,
+  lookupEscrowSequence,
   submitShipCommit,
   submitReceivedConfirm,
 } = useAuctionTx()
@@ -185,6 +202,17 @@ const canCancelMyEscrow = computed(() => {
   return !!myBid.value && !isWinner.value
 })
 
+const ledgerCloseTimeRipple = ref(0)
+const finishAfterRipple = computed(() => {
+  if (!auction.value) return 0
+  return unixToRippleSeconds(auction.value.auction.end_time) + ESCROW_RELEASE_DELAY_SEC
+})
+const isPastFinishAfter = computed(() => {
+  if (!auction.value || finishAfterRipple.value === 0) return false
+  if (ledgerCloseTimeRipple.value > 0) return ledgerCloseTimeRipple.value > finishAfterRipple.value
+  return Date.now() / 1000 > auction.value.auction.end_time + ESCROW_RELEASE_DELAY_SEC
+})
+
 const isPastCancelAfter = computed(() => {
   if (!auction.value) return false
   const cancelAfterTs = auction.value.auction.end_time + ESCROW_CANCEL_AFTER_GRACE_SEC
@@ -199,11 +227,22 @@ function formatTime(ts: number): string {
   return new Date(ts * 1000).toLocaleString()
 }
 
+async function refreshLedgerTime() {
+  if (auction.value && isEnded.value) {
+    try {
+      ledgerCloseTimeRipple.value = await getLedgerCloseTimeRipple()
+    } catch {
+      ledgerCloseTimeRipple.value = 0
+    }
+  }
+}
+
 async function loadAuction() {
   loading.value = true
   try {
     const list = await fetchAuctions()
     auction.value = list.find((a) => a.auction.auction_id === id) ?? null
+    await refreshLedgerTime()
   } catch (e: any) {
     auction.value = null
     showStatus(e?.message || '加载拍卖信息失败', 'error')
@@ -246,12 +285,27 @@ async function placeBid() {
 async function settle() {
   if (!auction.value || !winnerBid.value) return
   isSettling.value = true
+  let seq = winnerBid.value.payload.escrow_seq
+  const owner = winnerBid.value.payload.escrow_owner
+  const dest = auction.value.auction.seller
+  const amt = winnerBid.value.payload.bid_drops
   try {
-    await submitEscrowFinish(winnerBid.value.payload.escrow_owner, winnerBid.value.payload.escrow_seq)
+    await submitEscrowFinish(owner, seq)
     showStatus('EscrowFinish 成功，款项已释放给卖家', 'success')
     await loadAuction()
   } catch (e: any) {
-    showStatus(e?.message || '结算失败', 'error')
+    const altSeq = await lookupEscrowSequence(owner, dest, amt)
+    if (altSeq != null && altSeq !== seq) {
+      try {
+        await submitEscrowFinish(owner, altSeq)
+        showStatus('EscrowFinish 成功（已从链上校正序号），款项已释放给卖家', 'success')
+        await loadAuction()
+      } catch (e2: any) {
+        showStatus(e2?.message || '结算失败', 'error')
+      }
+    } else {
+      showStatus(e?.message || '结算失败', 'error')
+    }
   } finally {
     isSettling.value = false
   }
@@ -311,5 +365,9 @@ async function receivedConfirm() {
   }
 }
 
-onMounted(loadAuction)
+onMounted(() => {
+  loadAuction()
+  const interval = setInterval(refreshLedgerTime, 5000)
+  onUnmounted(() => clearInterval(interval))
+})
 </script>

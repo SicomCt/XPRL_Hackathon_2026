@@ -12,8 +12,10 @@ export const AUCTION_INDEX_ADDRESS = 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe'
 /** 1 XRP = 1,000,000 drops */
 export const XRP_TO_DROPS = 1_000_000
 
-/** Escrow 结束后退款宽限期（秒），超过 CancelAfter 后可 EscrowCancel */
-export const ESCROW_CANCEL_AFTER_GRACE_SEC = 24 * 60 * 60 // 24h
+/** Escrow 释放延迟（秒）：0 = 拍卖结束即可 EscrowFinish */
+export const ESCROW_RELEASE_DELAY_SEC = 0
+/** CancelAfter：1 分钟后，输家可申请退款。EscrowFinish 窗口为 1 分钟 */
+export const ESCROW_CANCEL_AFTER_GRACE_SEC = 60
 
 // --- 事件类型 ---
 export const EVENT_AUCTION_CREATE = 'AUCTION_CREATE'

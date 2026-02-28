@@ -18,6 +18,19 @@ import {
 
 const TESTNET_WSS = 'wss://s.altnet.rippletest.net:51233'
 
+/** 获取当前已验证 ledger 的 Ripple Epoch 关闭时间（用于精确判断 FinishAfter 是否已到） */
+export async function getLedgerCloseTimeRipple(): Promise<number> {
+  const client = new Client(TESTNET_WSS)
+  await client.connect()
+  try {
+    const resp = await client.request({ command: 'ledger', ledger_index: 'validated' })
+    const ledger = (resp.result as { ledger?: { close_time?: number } }).ledger
+    return ledger?.close_time ?? 0
+  } finally {
+    await client.disconnect()
+  }
+}
+
 export function useAuctionChain() {
   const fetchAccountTransactions = async (limit = 200): Promise<Array<{
     tx: Record<string, unknown>

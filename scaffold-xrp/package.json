@@ -17,6 +17,7 @@
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "@oxc-parser/binding-darwin-arm64": "^0.112.0",
     "prettier": "^3.7.4",
     "turbo": "^1.13.4"
   },

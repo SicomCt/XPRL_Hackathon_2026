@@ -8,6 +8,7 @@ import {
   EVENT_BID,
   EVENT_SHIP_COMMIT,
   EVENT_RECEIVED_CONFIRM,
+  ESCROW_RELEASE_DELAY_SEC,
   ESCROW_CANCEL_AFTER_GRACE_SEC,
   buildMemo,
   unixToRippleSeconds,
@@ -19,12 +20,52 @@ import {
 
 const TESTNET_WSS = 'wss://s.altnet.rippletest.net:51233'
 
-async function getAccountSequence(address: string): Promise<number> {
+/** 从已提交的交易哈希获取实际使用的 Sequence */
+async function getSequenceFromTxHash(txHash: string): Promise<number> {
   const client = new Client(TESTNET_WSS)
   await client.connect()
   try {
-    const resp = await client.request({ command: 'account_info', account: address })
-    return (resp.result as { account_data?: { Sequence?: number } }).account_data?.Sequence ?? 0
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise((r) => setTimeout(r, 1000 + attempt * 500))
+      try {
+        const resp = await client.request({ command: 'tx', transaction: txHash })
+        const seq = (resp.result as { Sequence?: number }).Sequence
+        if (seq !== undefined && seq !== null) return seq
+      } catch {
+        // tx 可能尚未上链，继续重试
+      }
+    }
+    throw new Error('交易尚未确认，请稍后重试')
+  } finally {
+    await client.disconnect()
+  }
+}
+
+/** 从链上查找 Escrow 的 Sequence（当 BID 中存的 sequence 有误时备用） */
+async function findEscrowSequenceFromLedger(owner: string, destination: string, amountDrops: string): Promise<number | null> {
+  const client = new Client(TESTNET_WSS)
+  await client.connect()
+  try {
+    const resp = await client.request({
+      command: 'account_objects',
+      account: owner,
+      type: 'escrow',
+    } as any)
+    const objects = (resp.result as { account_objects?: unknown[] }).account_objects ?? []
+    for (const obj of objects) {
+      const o = obj as { Destination?: string; Amount?: string; PreviousTxnID?: string }
+      if (o.Destination !== destination || String(o.Amount ?? '') !== amountDrops) continue
+      const txId = o.PreviousTxnID
+      if (!txId) continue
+      try {
+        const txResp = await client.request({ command: 'tx', transaction: txId })
+        const seq = (txResp.result as { Sequence?: number }).Sequence
+        if (seq) return seq
+      } catch {
+        // 忽略单条查询失败
+      }
+    }
+    return null
   } finally {
     await client.disconnect()
   }
@@ -77,23 +118,38 @@ export function useAuctionTx() {
     }
     const bidder = wm.account.address
     const endRipple = unixToRippleSeconds(params.endTimeUnix)
+    const finishAfterRipple = endRipple + ESCROW_RELEASE_DELAY_SEC
     const cancelAfterRipple = endRipple + ESCROW_CANCEL_AFTER_GRACE_SEC
 
-    // 发 EscrowCreate 前获取当前 sequence，用于 BID memo（Escrow 由 Owner+OfferSequence 标识）
-    const escrowSeq = await getAccountSequence(bidder)
-
-    // 1. EscrowCreate
+    // 1. EscrowCreate（拍卖结束即可 Finish，1 分钟后可 Cancel）
     const escrowTx = {
       TransactionType: 'EscrowCreate' as const,
       Account: bidder,
       Destination: params.sellerAddress,
       Amount: params.bidDrops,
-      FinishAfter: endRipple,
+      FinishAfter: finishAfterRipple,
       CancelAfter: cancelAfterRipple,
       Fee: '12',
     }
     const escrowResult = await wm.signAndSubmit(escrowTx as any)
     addEvent('EscrowCreate', escrowResult)
+
+    // 从实际交易获取 Sequence，确保 EscrowFinish 使用正确值
+    const txHash = (escrowResult as any)?.hash ?? (escrowResult as any)?.id ?? (escrowResult as any)?.result?.hash
+    let escrowSeq = 0
+    if (txHash && typeof txHash === 'string') {
+      try {
+        escrowSeq = await getSequenceFromTxHash(txHash)
+      } catch {
+        // 若 tx 查询失败，尝试从链上 escrow 列表查找
+        escrowSeq = (await findEscrowSequenceFromLedger(bidder, params.sellerAddress, params.bidDrops)) ?? 0
+      }
+    }
+    if (escrowSeq === 0) {
+      escrowSeq = (await findEscrowSequenceFromLedger(bidder, params.sellerAddress, params.bidDrops)) ?? 0
+    }
+    if (escrowSeq === 0) throw new Error('无法获取 Escrow 序号，请稍后刷新页面重试')
+
     const bidPayload: BidPayload = {
       type: EVENT_BID,
       auction_id: params.auctionId,
@@ -109,7 +165,7 @@ export function useAuctionTx() {
     return { escrowResult, bidPayload }
   }
 
-  /** EscrowFinish：赢家放款给卖家 */
+  /** EscrowFinish：赢家放款给卖家（任何人可触发） */
   const submitEscrowFinish = async (owner: string, seq: number) => {
     const wm = walletManager.value
     if (!wm?.account) {
@@ -118,14 +174,22 @@ export function useAuctionTx() {
     }
     const tx = {
       TransactionType: 'EscrowFinish' as const,
-      Account: wm.account.address, // 任何人可以触发，但通常由卖家或结算器
+      Account: wm.account.address,
       Owner: owner,
-      OfferSequence: seq,
+      OfferSequence: Number(seq),
       Fee: '12',
     }
-    const result = await wm.signAndSubmit(tx as any)
-    addEvent('EscrowFinish', result)
-    return result
+    try {
+      const result = await wm.signAndSubmit(tx as any)
+      addEvent('EscrowFinish', result)
+      return result
+    } catch (e: any) {
+      const msg = e?.message || e?.data?.error_message || String(e)
+      if (msg.includes('tec') || msg.includes('tem')) {
+        throw new Error(`链上拒绝: ${msg}。请确认：1) 拍卖已结束 2) 在 1 分钟内操作 3) Escrow 未被取消`)
+      }
+      throw e
+    }
   }
 
   /** EscrowCancel：输家退款 */
@@ -157,11 +221,17 @@ export function useAuctionTx() {
     return submitPaymentWithMemo(AUCTION_INDEX_ADDRESS, xrpToDrops('0.000001'), EVENT_RECEIVED_CONFIRM, payload as unknown as Record<string, unknown>)
   }
 
+  /** 从链上查找赢家 Escrow 的正确 Sequence（EscrowFinish 失败时可重试） */
+  const lookupEscrowSequence = async (owner: string, destination: string, amountDrops: string) => {
+    return findEscrowSequenceFromLedger(owner, destination, amountDrops)
+  }
+
   return {
     publishAuctionCreate,
     submitBid,
     submitEscrowFinish,
     submitEscrowCancel,
+    lookupEscrowSequence,
     submitShipCommit,
     submitReceivedConfirm,
   }
