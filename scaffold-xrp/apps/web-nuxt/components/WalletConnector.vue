@@ -10,6 +10,34 @@ const showDropdown = ref(false)
 const walletAvailability = ref<Record<string, boolean>>({})
 const gemwalletChecking = ref(false)
 
+function getAdapterMap(manager: any): Map<string, any> {
+  const adapters = manager?.adapters
+  if (!adapters) return new Map()
+  if (adapters instanceof Map) return adapters
+  if (Array.isArray(adapters)) return new Map(adapters)
+  if (typeof adapters === 'object') return new Map(Object.entries(adapters))
+  return new Map()
+}
+
+function resolveWalletId(manager: any, requested: 'crossmark' | 'gemwallet'): string {
+  const adapterMap = getAdapterMap(manager)
+  if (adapterMap.has(requested)) return requested
+  const keys = Array.from(adapterMap.keys())
+  const lowerKeys = keys.map(k => k.toLowerCase())
+
+  if (requested === 'gemwallet') {
+    const idx = lowerKeys.findIndex(k => k.includes('gem'))
+    if (idx >= 0) return keys[idx]
+  }
+
+  if (requested === 'crossmark') {
+    const idx = lowerKeys.findIndex(k => k.includes('cross'))
+    if (idx >= 0) return keys[idx]
+  }
+
+  return requested
+}
+
 async function checkAdapter(adapter: any): Promise<boolean> {
   try {
     return !!(await adapter?.isAvailable?.())
@@ -20,11 +48,11 @@ async function checkAdapter(adapter: any): Promise<boolean> {
 
 async function checkAvailability() {
   if (!walletManager.value) return
-  const adapters = (walletManager.value as any).adapters
-  if (!adapters) return
+  const adapters = getAdapterMap(walletManager.value)
+  if (!adapters.size) return
   const result: Record<string, boolean> = {}
 
-  for (const [id, adapter] of adapters) {
+  for (const [id, adapter] of adapters.entries()) {
     result[id] = await checkAdapter(adapter)
   }
   // GemWallet content-script injection can be slow; retry after delay.
@@ -32,14 +60,22 @@ async function checkAvailability() {
     await new Promise(r => setTimeout(r, 800))
     result.gemwallet = await checkAdapter(adapters.get('gemwallet'))
   }
+  // In some xrpl-connect versions, GemWallet adapter id differs.
+  const gemAlias = Object.keys(result).find(k => k.toLowerCase().includes('gem'))
+  if (gemAlias && gemAlias !== 'gemwallet') {
+    result.gemwallet = result[gemAlias]
+  }
   walletAvailability.value = result
 }
 
 async function retryGemwalletCheck() {
-  if (!walletManager.value?.adapters?.has?.('gemwallet')) return
+  if (!walletManager.value) return
+  const resolvedId = resolveWalletId(walletManager.value, 'gemwallet')
+  const adapters = getAdapterMap(walletManager.value)
+  if (!adapters.has(resolvedId)) return
   gemwalletChecking.value = true
   try {
-    const ok = await checkAdapter(walletManager.value.adapters.get('gemwallet'))
+    const ok = await checkAdapter(adapters.get(resolvedId))
     walletAvailability.value = { ...walletAvailability.value, gemwallet: ok }
     if (ok) showStatus('GemWallet detected', 'success')
   } finally {
@@ -55,7 +91,9 @@ function toggleDropdown() {
 }
 
 async function ensureGemwalletAvailable(): Promise<boolean> {
-  const adapter = walletManager.value?.adapters?.get?.('gemwallet')
+  if (!walletManager.value) return false
+  const resolvedId = resolveWalletId(walletManager.value, 'gemwallet')
+  const adapter = getAdapterMap(walletManager.value).get(resolvedId)
   if (!adapter) return false
   for (let i = 0; i < 4; i++) {
     if (await checkAdapter(adapter)) return true
@@ -74,15 +112,15 @@ async function connect(walletId: 'crossmark' | 'gemwallet') {
     isConnecting.value = true
     showDropdown.value = false
     showStatus(`Connecting to ${walletId === 'crossmark' ? 'Crossmark' : 'GemWallet'}...`, 'info')
-    // GemWallet detection can be flaky; retry before connecting.
+    const resolvedWalletId = resolveWalletId(walletManager.value, walletId)
+    // GemWallet detection can be flaky. Warn, but do not block connection.
     if (walletId === 'gemwallet') {
       const ok = await ensureGemwalletAvailable()
       if (!ok) {
-        showStatus('GemWallet not responding. Try: refresh page, use Chrome/Edge, or open GemWallet popup first.', 'error')
-        return
+        showStatus('GemWallet may not be detected yet. Trying to connect anyway...', 'warning')
       }
     }
-    await walletManager.value.connect(walletId)
+    await walletManager.value.connect(resolvedWalletId as any)
     showStatus('Connected!', 'success')
   } catch (e: any) {
     const msg = e?.message || ''
@@ -163,8 +201,8 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
           <button
             type="button"
             class="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 flex items-center justify-between gap-2"
-            :class="{ 'opacity-60': walletAvailability.gemwallet === false || gemwalletChecking }"
-            :disabled="walletAvailability.gemwallet === false || gemwalletChecking"
+            :class="{ 'opacity-60': gemwalletChecking }"
+            :disabled="gemwalletChecking"
             @click="connect('gemwallet')"
           >
             <span>GemWallet</span>
